@@ -1,0 +1,6 @@
+MotordriverInit	KEYWORD1
+setMotorL	KEYWORD2
+setMotorR	KEYWORD2
+setMotor	KEYWORD2
+getMotorL	KEYWORD2
+getMotorR	KEYWORD2

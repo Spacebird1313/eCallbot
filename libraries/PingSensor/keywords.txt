@@ -1,0 +1,5 @@
+PingSensorInit	KEYWORD1
+setPinmodePingSensors	KEYWORD2
+setValuePingSensors	KEYWORD2
+pingsensorPulsGeneration	KEYWORD2
+microSecToCentimeter	KEYWORD2
