@@ -88,19 +88,20 @@ void motorPulsGeneration(void)
 	
 	if(_commandPulsSection == 0)
 	{
-		PulsValue = _speedLeft; 	//Compare value - Puls 1 (left)
+		PulsValue = _speedLeft; 		//Compare value - Puls 1 (left)
 	}
 	else if(_commandPulsSection == 1)
 	{
-		PulsValue = 275;           	//Compare value - Hold off 1 (1.1 ms)
+		PulsValue = 275;           		//Compare value - Hold off 1 (1.1 ms)
 	}
 	else if(_commandPulsSection == 2)
 	{
-		PulsValue = _speedRight;   	//Compare value - Puls 2 (right)
+		PulsValue = _speedRight;   		//Compare value - Puls 2 (right)
 	}
 	else if(_commandPulsSection == 3)
 	{
-		PulsValue = 1313;      		//Compare value - Hold off 2 (5.25 ms)
+		PulsValue = 1313;      			//Compare value - Hold off 2 (5.25 ms - minimum)
+		PulsValue = PulsValue + 1187;	//Extra hold off time (10 ms before new message)
 	}
 	
 	//Check for overflow timer

@@ -11,14 +11,19 @@
  #include "Arduino.h"
  
  extern volatile int _pingPulsSection;
- extern volatile float pingDistanceL;
+ //extern volatile float pingDistanceL;
  extern volatile float pingDistanceM;
- extern volatile float pingDistanceR;
+ //extern volatile float pingDistanceR;
+ 
+ //extern volatile float pingDistanceLold;
+ extern volatile float pingDistanceMold;
+ //extern volatile float pingDistanceR;
  
  void PingSensorInit(void);
  void setPinmodePingSensors(int PinMode);	 		 //Change pinmode of pingsensor pins - Pinmode (0: Input, 1: Output)
  void setValuePingSensors(int value); 		 		 //Set pinvalue of pingsensor pins - Value (0: Low, 1: High)
  void pingsensorPulsGeneration();			 		 //Generate pulses to control ping sensors
+ void measureTimePingSensor();						 //Measure time for puls to receive back
  float microSecToCentimeter(float microseconds);	 //Conversion from time (microseconds) to distance (centimeter)
  
  #endif

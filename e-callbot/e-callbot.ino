@@ -7,16 +7,17 @@ volatile float _translocationR;
 volatile float _positionL;
 volatile float _positionR;
 volatile int _correctionMode;
-int _direction;
-int _speed;
+volatile int _speedL;
+volatile int _speedR;
 char state;
 int speed = 10;
-byte byte1 = B1000;
-int byte2 = 0;
-byte byte3 = B1000;
 
+//speedStraight: range 0-255
+//directionStraight: 0x00 - forwards
+//                   0x01 - backwards
 void moveStraightCommand(int speedStraight, int directionStraight)
 {
+  int directionMove = 0;
   _correctionMode = 0x00;
   
   //Reset position controllers
@@ -24,19 +25,43 @@ void moveStraightCommand(int speedStraight, int directionStraight)
   
   if(directionStraight == 0)
   {
-    _direction = 1;
+    directionMove = 1;
   }
   else
   {
-    _direction = -1;
+    directionMove = -1;
   }
   
-  _speed = speedStraight/10.2;
+  _speedL = directionMove * (speedStraight/10.2);
+  _speedR = _speedL;
   
-  setMotor(_direction * _speed);
+  setMotor(_speedL);
   
   //Activate position controller interrupt
   TIMSK1 |= (1 << OCIE1B); //Output compare portB interrupt - OCIE1B: enabled
+}
+
+//turnSpeed: range 0-255
+//turnDirection: 0x00 - counter-clockwise
+//               0x01 - clockwise
+void turnCommand(int turnSpeed, int turnDirection)
+{
+  _correctionMode = 0x02;
+  
+  if(turnDirection == 0x00)
+  {
+    turnDirection = 1;
+  }
+  else
+  {
+    turnDirection = -1;
+  }
+  
+  _speedL = (turnSpeed/10.2) * (-turnDirection);
+  _speedR = (turnSpeed/10.2) * turnDirection;
+ 
+  setMotorL(_speedL);
+  setMotorR(_speedR);
 }
 
 void stopCommand()
@@ -46,22 +71,59 @@ void stopCommand()
   setMotor(0);
 }
 
-void moveDistanceCommand(float translocation, float rotation, int distanceSpeed)
+//translocation: X * 10.0cm
+//rotation: x degrees
+//distanceSpeed: range 0-255
+void moveDistanceCommand(float translocation, int rotation, int distanceSpeed)
 {
-  _correctionMode = 0x01;
-  _speed = speedStraight/10.2;
+  float rotationL = 0;
+  float rotationR = 0;
+  int directionMove = 0;
+  int travelSpeed = 0;
   
   //Reset position controllers
   resetPosition(Wheel_Both);
   
-  _translocationL = translocation*0.1;
-  _translocationR = translocation*0.1;
+  if(translocation >= 0)
+  {
+    directionMove = 1;
+  }
+  else
+  {
+    directionMove = -1;
+  }
+  
+  travelSpeed = directionMove * (distanceSpeed/10.2);
+  
+  if(rotation > 0)
+  {
+    _correctionMode = 0x02;
+    rotationL = rotation * (Outline_Wheel/90);
+    _speedL = travelSpeed;
+    _speedR = travelSpeed/2; 
+  }
+  else if(rotation < 0)
+  {
+    _correctionMode = 0x02;
+    rotationR = rotation * (Outline_Wheel/90);
+    _speedR = travelSpeed;
+    _speedL = travelSpeed/2;
+  }
+  else
+  {
+    _correctionMode = 0x01;
+    _speedL = travelSpeed;
+    _speedR = travelSpeed;
+  }
+  
+  _translocationL = translocation*0.1 + rotationL;
+  _translocationR = translocation*0.1 + rotationR;
   
   noInterrupts();
   
   //Get current counter value
   int CurrentCount = TCNT1;
-  int PulsValue = 500;      //20 ms (prescaler: 64)
+  int PulsValue = 6250;      //25 ms (prescaler: 64)
   int NewCounter = 0;
  
   //Check for overflow timer
@@ -79,16 +141,8 @@ void moveDistanceCommand(float translocation, float rotation, int distanceSpeed)
   //Activate position controller interrupt
   TIMSK1 |= (1 << OCIE1B); //Output compare portB interrupt - OCIE1B: enabled
   
-  if(translocation >= 0)
-  {
-    _direction = 1;
-    setMotor(_speed);
-  }
-  else
-  {
-    _direction = -1;
-    setMotor(-_speed);
-  }
+  setMotorL(_speedL);
+  setMotorR(_speedR);
   
   interrupts();
 }
@@ -101,51 +155,12 @@ ISR(TIMER1_COMPB_vect)
   boolean positionLReached = false;
   boolean positionRReached = false;
   float difference = 0;
+  float correctionDifference = 0.06;     //Difference between wheels before correction
+  float errorDifference = 0.3;           //Difference between wheels before error stop
+  int speedL = _speedL;
+  int speedR = _speedR;
   
-  if(_correctionMode == 0x01)
-  {
-    if(_translocationL > 0)
-    {
-      if(_positionL >= _translocationL)
-      {
-        positionLReached = true;
-        setMotorL(0);
-      }
-    }
-    else
-    {
-      if(_positionL <= _translocationL)
-      {
-        positionLReached = true;
-        setMotorL(0);
-      }
-    }
-    
-    if(_translocationR > 0)
-    {
-      if(_positionR >= _translocationR)
-      {
-        positionRReached = true;
-        setMotorR(0);
-      }
-    }
-    else
-    {
-      if(_positionR <= _translocationR)
-      {
-        positionRReached = true;
-        setMotorR(0); 
-      }
-    }
-    
-    if(positionLReached && positionRReached)
-    {
-      //Translation completed
-      setMotor(0);
-    }
-  }
-  
-  //if(_correctionMode == 0x00)
+  if(_correctionMode < 0x02)
   {
     difference = _positionL - _positionR;
     
@@ -154,53 +169,45 @@ ISR(TIMER1_COMPB_vect)
       difference = -difference;
     }
     
-    if(difference > 0.10)
+    if(difference > errorDifference)      //Difference between to large - shutdown procedure
     {
-      if(_direction * _positionL < _direction * _positionR)
+      errorPositionControl();
+      return;
+    }
+    else if(difference > correctionDifference)
+    {
+      if(abs(_positionL) < abs(_positionR))
       {
-        if(positionRReached == false)
-        {
-          setMotorR((_direction * _speed)/2);
-        }  
+        speedR = _speedR/2;
+        speedL = _speedL; 
       }
       else
       {
-        if(positionLReached == false)
-        {
-          setMotorL((_direction * _speed)/2);
-        }
+        speedL = _speedL/2;
+        speedR = _speedR;
       }
     }
     else
     {
-      if(positionLReached == false)
-      {
-        setMotorL((_direction * _speed));
-      }
-      if(positionRReached == false)
-      {
-        setMotorR((_direction * _speed));
-      } 
+      speedL = _speedL;
+      speedR = _speedR;
     }
   }
   
-  /*
-  if(_correctionMode == 0x01)
+  if(_correctionMode > 0x00)
   {
     if(_translocationL > 0)
     {
       if(_positionL >= _translocationL)
       {
-        positionLReached = true;
-        setMotorL(0);
+        speedL = 0;
       }
     }
     else
     {
       if(_positionL <= _translocationL)
       {
-        positionLReached = true;
-        setMotorL(0);
+        speedL = 0;
       }
     }
     
@@ -208,54 +215,76 @@ ISR(TIMER1_COMPB_vect)
     {
       if(_positionR >= _translocationR)
       {
-        positionRReached = true;
-        setMotorR(0);
+        speedR = 0;
       }
     }
     else
     {
       if(_positionR <= _translocationR)
       {
-        positionRReached = true;
-        setMotorR(0); 
+        speedR = 0;
       }
     }
     
-    if(positionLReached && positionRReached)
+    if(speedR == 0 && speedL == 0)
     {
       //Translation completed
-      setMotor(0);
+      stopCommand();
     }
   }
-  */
   
-  //if(positionLReached && positionRReached)
-  //{
-    //Deactive position controller interrupt
-    //TIMSK1 &= ~(1 << OCIE1B);
+  setMotorL(speedL);
+  setMotorR(speedR);
+  
+  noInterrupts();
+  
+  //Get current counter value
+  int CurrentCount = TCNT1;
+  int PulsValue = 6250;      //25 ms (prescaler: 64)
+  int NewCounter = 0;
+ 
+  //Check for overflow timer
+  if(0xFFFF - CurrentCount < PulsValue)
+  {
+    NewCounter = PulsValue - (0XFFFF - CurrentCount) - 1;	//New interrupt value when overflow occures
+  }
+  else
+  {
+    NewCounter = CurrentCount + PulsValue;		        //New interrupt value when no overflow occures
+  }
+  
+  OCR1B = NewCounter;      //Compare value
+  
+  interrupts();
+}
+
+void errorPositionControl()
+{
+  Serial.println("Position controllers has reported an error: wheels are blocked.");
+  stopCommand();
+  Serial.println(Conv_Position(getPosition(Wheel_Left)));
+  Serial.println(Conv_Position(getPosition(Wheel_Right)));
+  errorBlinkLed();
+}
+
+void errorBlinkLed()
+{
+  //Pinmode declarations
+  DDRB |= (1<<(DDB7));     //Set pin 13 (error-LED) output
+  
+  //Blink three times
+  for(int i = 0; i < 3; i++)
+  {
+    //Turn LED pin high
+    PORTB = (PORTB | 0X80);
     
-    //Translation completed
-    //setMotor(0);
-  //}
-  //else
-  //{
-    //Get current counter value
-    int CurrentCount = TCNT1;
-    int PulsValue = 750;      //30 ms (prescaler: 64)
-    int NewCounter = 0;
-   
-    //Check for overflow timer
-    if(0xFFFF - CurrentCount < PulsValue)
-    {
-      NewCounter = PulsValue - (0XFFFF - CurrentCount) - 1;	//New interrupt value when overflow occures
-    }
-    else
-    {
-      NewCounter = CurrentCount + PulsValue;		        //New interrupt value when no overflow occures
-    }
+    delay(500);
     
-    OCR1B = NewCounter;      //Compare value
-  //}
+    //Turn LED pin low
+    PORTB = (PORTB & 0X7F);
+    
+    delay(500);
+  }
 }
 
 void setup()
@@ -264,12 +293,12 @@ void setup()
   
   //Correction mode
   //0x00: Both wheels equal distance
-  //0x01: Predefined distance stop
+  //0x01: Predefined distance stop equal distance
+  //0x02: Predefined distance stop not equal distance
   _correctionMode = 0x00;
   
-  _direction = 1;       //Move forward
-  
-  _speed = 10;          //Initial speed
+  _speedL = 0;
+  _speedR = 0;
   
   //Timer 1: interrupts timer (Normal - Prescaler (64))
   TCCR1A = 0;              //Waveform: Normal  
@@ -293,8 +322,6 @@ void setup()
   TCCR1B |= (1 << CS11) | (1 << CS10);  //Counter on - CS11 + CS10: prescaler (64)
 }
 
-int teller = 0;
-
 void loop()
 {
   state = ' ';
@@ -305,26 +332,60 @@ void loop()
   
   if(state == 'z')
   {
-    Serial.println("Command Z read");
-    moveDistanceCommand(10.0, 0.0); 
+    Serial.println("Command forward");
+    moveStraightCommand(80, 0);
   }
   
   if(state == 's')
   {
-    Serial.println("Command S read");
-    moveDistanceCommand(-10.0, 0.0);
+    Serial.println("Command backward");
+    moveStraightCommand(80, 1);
   }
   
   if(state == 'q')
   {
-    Serial.println("Command Q read");
-    moveStraightCommand(140, 0);
+    turnCommand(80, 1);
   }
   
   if(state == 'd')
   {
-    Serial.println("Command D read");
-    moveStraightCommand(80, 1);
+    turnCommand(80, 0);
+  }
+  
+  if(state == '1')
+  {
+    Serial.println("Command 1m forward");
+    moveDistanceCommand(10.0, 0, 120);
+  }
+  
+  if(state == '2')
+  {
+    Serial.println("Command 1m backward");
+    moveDistanceCommand(-10.0, 0, 120);
+  }
+  
+  if(state == '3')
+  {
+    Serial.println("Command 1m turn 90° left forward");
+    moveDistanceCommand(10.0, 90, 120);
+  }
+  
+  if(state == '4')
+  {
+    Serial.println("Command 1m turn 90° right forward");
+    moveDistanceCommand(10.0, -90, 120);
+  }
+  
+  if(state == '5')
+  {
+    Serial.println("Command do a barrelrol, 2m turn 360° left forward");
+    moveDistanceCommand(20.0, 360, 120);
+  }
+  
+  if(state == '6')
+  {
+    Serial.println("Command 1m turn 180° left backwards");
+    moveDistanceCommand(-10.0, 180, 120);
   }
   
   if(state == 'a')
@@ -333,19 +394,14 @@ void loop()
     Serial.println("STOP");
   }
   
-  if(teller >= 9999)
-  {
-    teller = 0;
-    Serial.println(_direction);
-    Serial.println(_speed);
-    Serial.println(_positionL);
-    Serial.println(_positionR);
-    //Serial.println(Conv_Position(getPosition(Wheel_Left)));
-  }
-  else
-  {
-    teller = teller + 1;
-  }
+  
+  
+  
+  
+  
+  
+  
+  
   
   /*
   if(Serial.available() > 7)
