@@ -80,7 +80,7 @@ void pingsensorPulsGeneration()
 		setValuePingSensors(0);        //Set pins low to end measurement
 		setPinmodePingSensors(0);      //Set pinmode to input
 		measureTimePingSensor();
-		stepTime = 0xFFFF;             //Compare value - Wait
+		stepTime = 0xFFFE;             //Compare value - Wait
 	  }
 	  
 	  noInterrupts();
@@ -113,10 +113,10 @@ void pingsensorPulsGeneration()
 //Measure time for puls to receive back
 void measureTimePingSensor()
 {
-	pingDistanceMold = microSecToCentimeter(pingDistanceM);
+	//pingDistanceMold = microSecToCentimeter(pingDistanceM);
 	
 	//pingDistanceL = microSecToCentimeter(pulseIn(48, HIGH));
-	pingDistanceM = microSecToCentimeter(pulseIn(50, HIGH));
+	//pingDistanceM = microSecToCentimeter(pulseIn(50, HIGH));
 	//pingDistanceR = microSecToCentimeter(pulseIn(52, HIGH));
 }
 

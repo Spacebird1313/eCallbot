@@ -1,6 +1,5 @@
 #include <Motordriver.h>
 #include <PositionController.h>
-//#include <PingSensor.h>
 
 volatile float _translocationL;
 volatile float _translocationR;
@@ -156,7 +155,7 @@ ISR(TIMER1_COMPB_vect)
   boolean positionRReached = false;
   float difference = 0;
   float correctionDifference = 0.06;     //Difference between wheels before correction
-  float errorDifference = 0.3;           //Difference between wheels before error stop
+  float errorDifference = 0.6;           //Difference between wheels before error stop
   int speedL = _speedL;
   int speedR = _speedR;
   
@@ -201,6 +200,7 @@ ISR(TIMER1_COMPB_vect)
       if(_positionL >= _translocationL)
       {
         speedL = 0;
+        _speedL = 0;
       }
     }
     else
@@ -208,6 +208,7 @@ ISR(TIMER1_COMPB_vect)
       if(_positionL <= _translocationL)
       {
         speedL = 0;
+        _speedL = 0;
       }
     }
     
@@ -216,6 +217,7 @@ ISR(TIMER1_COMPB_vect)
       if(_positionR >= _translocationR)
       {
         speedR = 0;
+        _speedR = 0;
       }
     }
     else
@@ -223,6 +225,7 @@ ISR(TIMER1_COMPB_vect)
       if(_positionR <= _translocationR)
       {
         speedR = 0;
+        _speedR = 0;
       }
     }
     
@@ -230,6 +233,7 @@ ISR(TIMER1_COMPB_vect)
     {
       //Translation completed
       stopCommand();
+      return;
     }
   }
   
@@ -262,8 +266,6 @@ void errorPositionControl()
 {
   Serial.println("Position controllers has reported an error: wheels are blocked.");
   stopCommand();
-  Serial.println(Conv_Position(getPosition(Wheel_Left)));
-  Serial.println(Conv_Position(getPosition(Wheel_Right)));
   errorBlinkLed();
 }
 
@@ -309,8 +311,6 @@ void setup()
   PositionControllerInit();             //Initialise the position controllers on Pin 14, 15
   reverseTurndirection(Wheel_Right);    //Change turn direction right wheel (clock wise: positive)
   
-  //PingSensorInit();             //Initialise the ping sensors on Pin 48, 50, 52
-  
   //Initialise Serial1
   Serial1.begin(57600);          //Bluetooth transceiver port (pin 18 - 19)
   
@@ -332,13 +332,11 @@ void loop()
   
   if(state == 'z')
   {
-    Serial.println("Command forward");
     moveStraightCommand(80, 0);
   }
   
   if(state == 's')
   {
-    Serial.println("Command backward");
     moveStraightCommand(80, 1);
   }
   
@@ -355,13 +353,13 @@ void loop()
   if(state == '1')
   {
     Serial.println("Command 1m forward");
-    moveDistanceCommand(10.0, 0, 120);
+    moveDistanceCommand(10.0, 0, 80);
   }
   
   if(state == '2')
   {
     Serial.println("Command 1m backward");
-    moveDistanceCommand(-10.0, 0, 120);
+    moveDistanceCommand(-10.0, 0, 80);
   }
   
   if(state == '3')
@@ -393,145 +391,4 @@ void loop()
     stopCommand();
     Serial.println("STOP");
   }
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  /*
-  if(Serial.available() > 7)
-  {
-    byte1 = Serial.read();
-    if(StartOfMessage(byte1) == true )
-    {
-      //Read LEN and CMD
-      int i = 0;
-      while (i < 1)
-      {
-        if(Serial.available()>7)
-        {
-	  byte2 = Serial.read()-'0';
-	  i = i++;
-	}
-	else
-        {
-	  //Wait for buffer to fill LEN message
-	}
-      }
-      while(i < 2)
-      {
-         if(Serial.available() > 7)
-         {
-           byte3 = Serial.read();
-           i = i++;
-         }
-         else
-         {
-           //Wait for buffer to fill CMD-ID message
-         }
-      }
-      InputCommand(byte2, byte3);
-    }
-    else
-    {
-      // Wait for start of frame
-    }
-  }
-}
-
-boolean StartOfMessage(byte sof)
-{
-  if(sof == 0xAA)
-  {
-    return true;
-  }
-  else
-  {
-    return false;
-  }
-}
-
-void InputCommand(int LEN, byte CMD)
-{
-  //counter for input
-  int i = 0;
-  //len variable for amount of input bytes to come
-  int j = LEN;
-  j = j-1;
-	
-  if(j == 0)
-  {
-    //Generate BCC
-  }
-  else if(j == i)
-  {
-    if(CMD == 0x01)
-    {
-      //MoveCommand(byte1, byte2);
-      i++;
-    }
-    else if(CMD == 0x02)
-    {
-      //TurnOnSpotCommand(byte1, byte2);
-      i++;
-    }
-    else if(CMD == 0x03)
-    {
-      //TurnCommand(byte1, byte2, byte3);
-      i++;
-    }
-    else if(CMD == 0x04)
-    {
-      //Stop command
-      stopCommand();
-      i++;
-    }
-    else if(CMD == 0x05)
-    {
-      //SpeedChange(byte1, byte2);
-      i++;
-    }
-    else
-    {
-			
-    }
-    j = -1;
-  }
-  else if(j = 1)
-  {
-    //Read first variable
-    if(Serial.read() > 7)
-    {
-      byte1 = Serial.read();
-      i++;
-    }
-   }
-   else if(j == 2)
-   {
-     //Read second variable
-     if(Serial.read() > 7)
-     {
-       byte2 = Serial.read();
-       i++;
-     }
-    }
-    else if(j == 3 )
-    {
-      //Read thirth variable
-      if(Serial.read() > 7)
-      {
-        byte3 = Serial.read();
-	i++;
-      }
-    }
-    else
-    {
-      //End command
-    }
-    */
 }
