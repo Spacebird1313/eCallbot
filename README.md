@@ -28,3 +28,14 @@ GUI
 ===
 
 Visual basic based GUI project for eCallbot project sketch.
+
+
+Developed by
+============
+
+Heyvaert Kevin
+Huijghebaert Jan
+Huybrechts Thomas
+Nyssen Oliver
+
+University of Antwerp - 2014
