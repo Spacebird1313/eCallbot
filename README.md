@@ -36,6 +36,6 @@ Developed by
 Heyvaert Kevin, 
 Huijghebaert Jan, 
 Huybrechts Thomas, 
-Nyssen Oliver, 
+Nyssen Oliver 
 
 University of Antwerp - 2014
