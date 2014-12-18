@@ -1,5 +1,9 @@
 #include <Motordriver.h>
 #include <PositionController.h>
+#include <ros.h>
+#include <std_msgs/Int16.h>
+#include <std_msgs/String.h>
+#include <geometry_msgs/Twist.h>
 
 volatile float _translocationL;
 volatile float _translocationR;
@@ -9,90 +13,34 @@ volatile int _correctionMode;
 volatile int _speedL;
 volatile int _speedR;
 char state;
-int speed = 10;
+int speed = 8;
 
-//speedStraight: range 0-255
-//directionStraight: 0x00 - forwards
-//                   0x01 - backwards
-void moveStraightCommand(int speedStraight, int directionStraight)
-{
-  int directionMove = 0;
-  _correctionMode = 0x00;
-  
-  //Reset position controllers
-  resetPosition(Wheel_Both);
-  
-  if(directionStraight == 0)
-  {
-    directionMove = 1;
-  }
-  else
-  {
-    directionMove = -1;
-  }
-  
-  _speedL = directionMove * (speedStraight/10.2);
-  _speedR = _speedL;
-  
-  setMotor(_speedL);
-  
-  //Activate position controller interrupt
-  TIMSK1 |= (1 << OCIE1B); //Output compare portB interrupt - OCIE1B: enabled
-}
+//ROS node declarations
+ros::NodeHandle nodeHandle;
 
-//turnSpeed: range 0-255
-//turnDirection: 0x00 - counter-clockwise
-//               0x01 - clockwise
-void turnCommand(int turnSpeed, int turnDirection)
+void twistCommand(const geometry_msgs::Twist& msg)
 {
-  _correctionMode = 0x02;
-  
-  if(turnDirection == 0x00)
-  {
-    turnDirection = 1;
-  }
-  else
-  {
-    turnDirection = -1;
-  }
-  
-  _speedL = (turnSpeed/10.2) * (-turnDirection);
-  _speedR = (turnSpeed/10.2) * turnDirection;
- 
-  setMotorL(_speedL);
-  setMotorR(_speedR);
-}
-
-void stopCommand()
-{
-  //Deactive position controller interrupt
-  TIMSK1 &= ~(1 << OCIE1B);
-  setMotor(0);
-}
-
-//translocation: X * 10.0cm
-//rotation: x degrees
-//distanceSpeed: range 0-255
-void moveDistanceCommand(float translocation, int rotation, int distanceSpeed)
-{
+  float translocation = (msg.linear.x);  //unit translation equals 0.1m
+  float rotation = (msg.angular.z);
   float rotationL = 0;
-  float rotationR = 0;
-  int directionMove = 0;
+  float rotationR = 0; 
   int travelSpeed = 0;
+  _correctionMode = 0x00;
   
   //Reset position controllers
   resetPosition(Wheel_Both);
   
   if(translocation >= 0)
   {
-    directionMove = 1;
+    travelSpeed = speed;
   }
   else
   {
-    directionMove = -1;
+    travelSpeed = -speed;
   }
   
-  travelSpeed = directionMove * (distanceSpeed/10.2);
+  _translocationL = translocation*0.1 + rotation/57 * (Outline_Wheel/90);
+  _translocationR = translocation*0.1 + rotation/57 * (Outline_Wheel/90);
   
   if(rotation > 0)
   {
@@ -114,9 +62,6 @@ void moveDistanceCommand(float translocation, int rotation, int distanceSpeed)
     _speedL = travelSpeed;
     _speedR = travelSpeed;
   }
-  
-  _translocationL = translocation*0.1 + rotationL;
-  _translocationR = translocation*0.1 + rotationR;
   
   noInterrupts();
   
@@ -144,6 +89,13 @@ void moveDistanceCommand(float translocation, int rotation, int distanceSpeed)
   setMotorR(_speedR);
   
   interrupts();
+}
+
+void stopCommand()
+{
+  //Deactive position controller interrupt
+  TIMSK1 &= ~(1 << OCIE1B);
+  setMotor(0);
 }
 
 //Interrupt vector timer 1: position controller communication
@@ -260,9 +212,13 @@ ISR(TIMER1_COMPB_vect)
   interrupts();
 }
 
+void speedCommand(const std_msgs::Int16& msg)
+{
+  speed = msg.data;
+}
+
 void errorPositionControl()
 {
-  Serial.println("Position controllers has reported an error: wheels are blocked.");
   stopCommand();
   errorBlinkLed();
 }
@@ -287,6 +243,10 @@ void errorBlinkLed()
   }
 }
 
+//ROS subscriptions
+ros::Subscriber<geometry_msgs::Twist> twistSub("/eCallBot/cmd_vel", &twistCommand);
+ros::Subscriber<std_msgs::Int16> speedSub("/eCallBot/cmd_speed", &speedCommand);
+
 void setup()
 {
   noInterrupts();
@@ -309,10 +269,10 @@ void setup()
   PositionControllerInit();             //Initialise the position controllers on Pin 14, 15
   reverseTurndirection(Wheel_Right);    //Change turn direction right wheel (clock wise: positive)
   
-  //Initialise Serial1
-  Serial1.begin(57600);          //Bluetooth transceiver port (pin 18 - 19)
+  nodeHandle.initNode();      //Initialise ROS node
   
-  Serial.begin(9600);
+  nodeHandle.subscribe(twistSub);    //Initialise subscribe topics
+  nodeHandle.subscribe(speedSub);
   
   interrupts();
   
@@ -322,71 +282,6 @@ void setup()
 
 void loop()
 {
-  state = ' ';
-  if(Serial1.available() > 0)
-  {
-    state = Serial1.read();
-  }
-  
-  if(state == 'z')
-  {
-    moveStraightCommand(80, 0);
-  }
-  
-  if(state == 's')
-  {
-    moveStraightCommand(80, 1);
-  }
-  
-  if(state == 'q')
-  {
-    turnCommand(80, 1);
-  }
-  
-  if(state == 'd')
-  {
-    turnCommand(80, 0);
-  }
-  
-  if(state == '1')
-  {
-    Serial.println("Command 1m forward");
-    moveDistanceCommand(10.0, 0, 80);
-  }
-  
-  if(state == '2')
-  {
-    Serial.println("Command 1m backward");
-    moveDistanceCommand(-10.0, 0, 80);
-  }
-  
-  if(state == '3')
-  {
-    Serial.println("Command 1m turn 90° left forward");
-    moveDistanceCommand(10.0, 90, 120);
-  }
-  
-  if(state == '4')
-  {
-    Serial.println("Command 1m turn 90° right forward");
-    moveDistanceCommand(10.0, -90, 120);
-  }
-  
-  if(state == '5')
-  {
-    Serial.println("Command do a barrelrol, 2m turn 360° left forward");
-    moveDistanceCommand(20.0, 360, 120);
-  }
-  
-  if(state == '6')
-  {
-    Serial.println("Command 1m turn 180° left backwards");
-    moveDistanceCommand(-10.0, 180, 120);
-  }
-  
-  if(state == 'a')
-  {
-    stopCommand();
-    Serial.println("STOP");
-  }
+  nodeHandle.spinOnce();
+  delay(100);  
 }
