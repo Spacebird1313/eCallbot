@@ -1,0 +1,12 @@
+c:\users\acer\documents\visual studio 2013\Projects\StingRay_GUI_2.0\StingRay_GUI_2.0\bin\Debug\StingRay_GUI_2.0.exe.config
+c:\users\acer\documents\visual studio 2013\Projects\StingRay_GUI_2.0\StingRay_GUI_2.0\bin\Debug\StingRay_GUI_2.0.exe
+c:\users\acer\documents\visual studio 2013\Projects\StingRay_GUI_2.0\StingRay_GUI_2.0\bin\Debug\StingRay_GUI_2.0.pdb
+c:\users\acer\documents\visual studio 2013\Projects\StingRay_GUI_2.0\StingRay_GUI_2.0\bin\Debug\StingRay_GUI_2.0.xml
+c:\users\acer\documents\visual studio 2013\Projects\StingRay_GUI_2.0\StingRay_GUI_2.0\obj\Debug\StingRay_GUI_2._0.Venster1.resources
+c:\users\acer\documents\visual studio 2013\Projects\StingRay_GUI_2.0\StingRay_GUI_2.0\obj\Debug\StingRay_GUI_2._0.Resources.resources
+c:\users\acer\documents\visual studio 2013\Projects\StingRay_GUI_2.0\StingRay_GUI_2.0\obj\Debug\StingRay_GUI_2.0.vbproj.GenerateResource.Cache
+c:\users\acer\documents\visual studio 2013\Projects\StingRay_GUI_2.0\StingRay_GUI_2.0\obj\Debug\StingRay_GUI_2.0.exe
+c:\users\acer\documents\visual studio 2013\Projects\StingRay_GUI_2.0\StingRay_GUI_2.0\obj\Debug\StingRay_GUI_2.0.xml
+c:\users\acer\documents\visual studio 2013\Projects\StingRay_GUI_2.0\StingRay_GUI_2.0\obj\Debug\StingRay_GUI_2.0.pdb
+C:\Users\Acer\documents\visual studio 2013\Projects\StingRay_GUI_2.0\StingRay_GUI_2.0\obj\Debug\StingRay_GUI_2._0.Venster2.resources
+C:\Users\Acer\documents\visual studio 2013\Projects\StingRay_GUI_2.0\StingRay_GUI_2.0\obj\Debug\StingRay_GUI_2.0.vbprojResolveAssemblyReference.cache
