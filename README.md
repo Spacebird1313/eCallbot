@@ -21,7 +21,7 @@ eCallbot ROS: project sketch designed for the ROS indigo project.
 Development code
 ================
 
-Test code for used for development of the project.
+Test code used for development of the project.
 
 
 GUI
